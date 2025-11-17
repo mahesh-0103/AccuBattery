@@ -1,0 +1,56 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 3s ease infinite;
+}
+
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+input[type="range"].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+input[type="range"].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(to right, #34d399, #3b82f6);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+}
+
+input[type="range"].slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(to right, #34d399, #3b82f6);
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+  border: none;
+}
+
+input[type="range"].slider::-webkit-slider-runnable-track {
+  background: linear-gradient(to right, #34d399, #3b82f6);
+  height: 8px;
+  border-radius: 4px;
+}
+
+input[type="range"].slider::-moz-range-track {
+  background: linear-gradient(to right, #34d399, #3b82f6);
+  height: 8px;
+  border-radius: 4px;
+}
