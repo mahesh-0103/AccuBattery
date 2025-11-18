@@ -1,10 +1,12 @@
-import joblib
 import numpy as np
 import pandas as pd
+import joblib # Required for joblib.load(SCALER_PATH)
 # Use the correct Keras import path
-from tensorflow.keras.models import load_model 
-import os # NEW: Added for path checking
-from pathlib import Path # NEW: Added for robust path handling
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras.layers import LSTM, Dense, Dropout, RepeatVector, TimeDistributed # Import necessary layers
+import os
+from pathlib import Path
 
 # Required features for your trained LSTM Autoencoder
 FEATURES_7 = [
@@ -18,21 +20,53 @@ def load_all():
     Loads the model + scaler with clean relative paths.
     """
     # Use Pathlib for system-independent path joining
-    BASE_DIR = Path(os.getcwd()) 
+    # Render's root directory is /opt/render/project/src/, which is where your 'backend' folder is located.
+    # We must start from the parent of 'backend' to use 'models/'
+    
+    # In Render environment, the working directory is the 'backend' folder itself (because of Root Directory setting).
+    # Therefore, we set BASE_DIR to the current working directory.
+    BASE_DIR = Path(os.getcwd())
+    
+    # Path inside the backend directory: backend/models/...
     MODEL_PATH = BASE_DIR / "models" / "lstm_autoencoder_mileage.keras"
     SCALER_PATH = BASE_DIR / "models" / "scaler.pkl"
 
-    # NEW: CRITICAL PATH CHECK
+    # CRITICAL PATH CHECK
     if not MODEL_PATH.exists():
         print(f"🚨 FATAL: Model file NOT found at: {MODEL_PATH.resolve()}")
         # This will prevent the Keras crash and force a visible FileNotFoundError in logs
         raise FileNotFoundError(f"Model file not found: {MODEL_PATH.resolve()}")
 
     print("🔋 Loading model from:", MODEL_PATH)
-    # The load_model function is the direct source of the error.
-    # If the environment pins are correct, the file itself is the problem.
-    model = load_model(MODEL_PATH)
 
+    # --- START OF FIX: Using custom_objects to bypass ValueError ---
+    # Since the model was saved with an older Keras convention, we must define 
+    # the standard layers as 'custom objects'. This often forces the loader 
+    # to use the layer class definition from the current TF/Keras version,
+    # and ignore unrecognized configuration keys like 'batch_input_shape'.
+    
+    # We include all common layers used in an LSTM Autoencoder, mapped to their current classes.
+    custom_layer_config = {
+        'LSTM': LSTM,
+        'Dense': Dense,
+        'Dropout': Dropout,
+        'RepeatVector': RepeatVector,
+        'TimeDistributed': TimeDistributed
+        # Add any other custom layers you may have used here.
+    }
+
+    try:
+        model = load_model(MODEL_PATH, custom_objects=custom_layer_config)
+    except ValueError as e:
+        print(f"❌ Keras Load Error (Attempting Compile=False): {e}")
+        # Secondary fix: Try disabling compilation, which sometimes fails due to optimizer config mismatch
+        model = load_model(MODEL_PATH, custom_objects=custom_layer_config, compile=False)
+        print("✅ Model loaded successfully using compile=False flag.")
+    # --- END OF FIX ---
+
+
+    # Ensure joblib is imported for the next line
+    # NOTE: You must ensure joblib is in your requirements.txt
     print("📐 Loading scaler from:", SCALER_PATH)
     scaler = joblib.load(SCALER_PATH)
 
