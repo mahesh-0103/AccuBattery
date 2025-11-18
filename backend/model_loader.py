@@ -1,7 +1,10 @@
 import joblib
 import numpy as np
 import pandas as pd
-from tensorflow.keras.models import load_model
+# Use the correct Keras import path
+from tensorflow.keras.models import load_model 
+import os # NEW: Added for path checking
+from pathlib import Path # NEW: Added for robust path handling
 
 # Required features for your trained LSTM Autoencoder
 FEATURES_7 = [
@@ -13,12 +16,21 @@ FEATURES_7 = [
 def load_all():
     """
     Loads the model + scaler with clean relative paths.
-    Works both locally and in deployments (Render, Railway, etc.).
     """
-    MODEL_PATH = "models/lstm_autoencoder_mileage.keras"
-    SCALER_PATH = "models/scaler.pkl"
+    # Use Pathlib for system-independent path joining
+    BASE_DIR = Path(os.getcwd()) 
+    MODEL_PATH = BASE_DIR / "models" / "lstm_autoencoder_mileage.keras"
+    SCALER_PATH = BASE_DIR / "models" / "scaler.pkl"
+
+    # NEW: CRITICAL PATH CHECK
+    if not MODEL_PATH.exists():
+        print(f"🚨 FATAL: Model file NOT found at: {MODEL_PATH.resolve()}")
+        # This will prevent the Keras crash and force a visible FileNotFoundError in logs
+        raise FileNotFoundError(f"Model file not found: {MODEL_PATH.resolve()}")
 
     print("🔋 Loading model from:", MODEL_PATH)
+    # The load_model function is the direct source of the error.
+    # If the environment pins are correct, the file itself is the problem.
     model = load_model(MODEL_PATH)
 
     print("📐 Loading scaler from:", SCALER_PATH)
