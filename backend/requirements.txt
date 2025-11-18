@@ -2,8 +2,8 @@ fastapi
 uvicorn
 pandas
 numpy
-tensorflow
+tensorflow==2.15.0 
+keras==2.15.0
 joblib
 python-multipart
-fpdf
 scikit-learn
