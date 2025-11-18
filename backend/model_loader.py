@@ -39,29 +39,37 @@ def load_all():
 
     print("🔋 Loading model from:", MODEL_PATH)
 
-    # --- START OF FIX: Using custom_objects to bypass ValueError ---
-    # Since the model was saved with an older Keras convention, we must define 
-    # the standard layers as 'custom objects'. This often forces the loader 
-    # to use the layer class definition from the current TF/Keras version,
-    # and ignore unrecognized configuration keys like 'batch_input_shape'.
-    
-    # We include all common layers used in an LSTM Autoencoder, mapped to their current classes.
+    # --- START OF FIX: Robust custom_objects setup ---
+    # We define the custom objects dictionary with the string names 
+    # mapping to the actual Keras layer classes.
     custom_layer_config = {
         'LSTM': LSTM,
         'Dense': Dense,
         'Dropout': Dropout,
         'RepeatVector': RepeatVector,
         'TimeDistributed': TimeDistributed
-        # Add any other custom layers you may have used here.
     }
 
     try:
+        # First attempt: Use custom_objects and compile=True (default)
         model = load_model(MODEL_PATH, custom_objects=custom_layer_config)
     except ValueError as e:
-        print(f"❌ Keras Load Error (Attempting Compile=False): {e}")
-        # Secondary fix: Try disabling compilation, which sometimes fails due to optimizer config mismatch
-        model = load_model(MODEL_PATH, custom_objects=custom_layer_config, compile=False)
-        print("✅ Model loaded successfully using compile=False flag.")
+        # If the ValueError persists, it means the serialization is very old.
+        # We try disabling compilation, which bypasses loading optimizer state
+        # which can sometimes contain conflicting arguments.
+        print(f"❌ Keras Load Error: {e}. Trying load_model with compile=False...")
+        try:
+            model = load_model(MODEL_PATH, custom_objects=custom_layer_config, compile=False)
+            print("✅ Model loaded successfully using compile=False flag.")
+        except Exception as inner_e:
+            # If the ValueError is still the exact same, we re-raise the original error
+            # as it's a deep-seated structural config issue.
+            if "Unrecognized keyword arguments passed to LSTM" in str(e) and "Unrecognized keyword arguments passed to LSTM" in str(inner_e):
+                 print("🛑 Keras structure error persists even with compile=False.")
+                 raise ValueError("Deep Keras version mismatch. Even with TensorFlow 2.13.1, the saved model structure is incompatible with the Keras loader. This model must be re-saved using a compatible TensorFlow version.")
+            else:
+                # If a new error occurred, raise that.
+                raise inner_e
     # --- END OF FIX ---
 
 
