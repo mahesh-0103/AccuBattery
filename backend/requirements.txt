@@ -5,5 +5,7 @@ numpy
 tensorflow==2.15.0 
 keras==2.15.0
 joblib
+fpdf
 python-multipart
 scikit-learn
+
