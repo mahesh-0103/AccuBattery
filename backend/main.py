@@ -130,16 +130,29 @@ app = FastAPI(
     version="1.1"
 )
 
-# CRITICAL MODIFICATION: Use your specific Vercel URL
-VERCEL_FRONTEND_URL = "https://accu-battery-rn5xqqj4z-maheswaran-ss-projects.vercel.app" 
+
+# CRITICAL MODIFICATION: Update this to your deployed Render URL for security and connectivity.
+# While render provides the final URL, VERCEL_FRONTEND_URL refers to your frontend URL
+# which needs to be allowed to access this backend.
+
+VERCEL_FRONTEND_URL = "https://accu-battery-rn5xqqj4z-maheswaran-ss-projects.vercel.app" # Your frontend URL
+
+RENDER_BACKEND_URL = "https://accubattery.onrender.com" # Your backend URL
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[VERCEL_FRONTEND_URL, "http://localhost:8000"], 
+    # Allow both your Vercel frontend and the Render backend (self-referencing is good)
+    allow_origins=[
+        VERCEL_FRONTEND_URL, 
+        RENDER_BACKEND_URL, 
+        "http://localhost:8000" # For local development
+    ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# You should redeploy the backend after making this change.
 
 # -----------------------------------------------------
 # LOAD MODEL + SCALER (Executed on startup)
@@ -296,5 +309,6 @@ if __name__ == "__main__":
 # -----------------------------------------------------
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
 
 
