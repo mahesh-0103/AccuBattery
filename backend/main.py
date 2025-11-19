@@ -85,21 +85,22 @@ app = FastAPI(
 
 
 # CRITICAL FIX: Use the new stable domain for the single frontend URL variable.
-VERCEL_FRONTEND_URL = "https://accu-battery-pdmu.vercel.app" 
-RENDER_BACKEND_URL = "https://accubattery.onrender.com" 
+# main.py
+
+# CRITICAL FIX: Update VERCEL_FRONTEND_URL to the final stable domain.
+VERCEL_FRONTEND_URL = "https://accu-battery.vercel.app" 
+
+RENDER_BACKEND_URL = "https://accubattery.onrender.com" # Your backend URL
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        VERCEL_FRONTEND_URL,              # The single variable that must be defined
-        RENDER_BACKEND_URL, 
-        "http://localhost:8000" 
+        VERCEL_FRONTEND_URL,             # Whitelist the new stable domain
+        RENDER_BACKEND_URL,              
+        "http://localhost:8000"          
     ], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # ... rest of CORS settings
 )
-
 
 # -----------------------------------------------------
 # LOAD MODEL + SCALER (Executed on startup)
@@ -251,3 +252,4 @@ async def export_pdf(data: dict):
 # -----------------------------------------------------
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
