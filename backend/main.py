@@ -66,16 +66,13 @@ def prepare_sequences(df: pd.DataFrame, scaler, seq_len: int):
     scaled_df = pd.DataFrame(scaled_data, columns=FEATURES)
 
     sequences = []
-    # Stop the range so the last sequence ends exactly at the end of the data
     for i in range(len(scaled_data) - seq_len + 1): 
         sequences.append(scaled_data[i:i + seq_len])
         
     return np.array(sequences), scaled_df
 
 # --- UTILITY: Anomaly Core Functions ---
-
-# NOTE: The implementation of compute_physics_features, determine_flag, and analyze_sequence 
-# is pulled from the external anomaly_core.py file, which is correct.
+# NOTE: compute_physics_features, determine_flag, and analyze_sequence are imported from anomaly_core.py
 
 # -----------------------------------------------------
 # FASTAPI SETUP
@@ -87,27 +84,23 @@ app = FastAPI(
 )
 
 
-# CRITICAL MODIFICATION: CORS Configuration
-# main.py
-
-# CRITICAL MODIFICATION: CORS Configuration
-# VERCEL_FRONTEND_URL = "https://accu-battery-rn5xqqj4z-maheswaran-ss-projects.vercel.app" 
-VERCEL_FRONTEND_URL_NEW = "https://accu-battery-pdmu.vercel.app"
-
-RENDER_BACKEND_URL = "https://accubattery.onrender.com" # Your backend URL
+# CRITICAL FIX: Use the new stable domain for the single frontend URL variable.
+VERCEL_FRONTEND_URL = "https://accu-battery-pdmu.vercel.app" 
+RENDER_BACKEND_URL = "https://accubattery.onrender.com" 
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        VERCEL_FRONTEND_URL_NEW,             # <--- Allow the new primary domain
-        VERCEL_FRONTEND_URL_OLD,             # <--- Keep the old one just in case
-        RENDER_BACKEND_URL,                  # Allow the backend to call itself
-        "http://localhost:8000"              # For local development
+        VERCEL_FRONTEND_URL,              # The single variable that must be defined
+        RENDER_BACKEND_URL, 
+        "http://localhost:8000" 
     ], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
 # -----------------------------------------------------
 # LOAD MODEL + SCALER (Executed on startup)
 # -----------------------------------------------------
@@ -254,9 +247,7 @@ async def export_pdf(data: dict):
 
 
 # -----------------------------------------------------
-# LOCAL DEV ENTRYPOINT (Corrected to only appear once)
+# LOCAL DEV ENTRYPOINT
 # -----------------------------------------------------
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-
-
