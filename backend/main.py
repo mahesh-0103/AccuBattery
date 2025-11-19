@@ -4,19 +4,21 @@ from fastapi.responses import StreamingResponse
 import pandas as pd
 import numpy as np
 import joblib
-import uvicorn
-import io
+from tensorflow.keras.models import load_model
 from io import BytesIO
 from fpdf import FPDF
-from tensorflow.keras.models import load_model # Keep the import
+import uvicorn
+import io
 
-# Local imports (Assuming anomaly_core.py and model_loader.py are accessible)
+# Local imports (Requires anomaly_core.py, which contains: compute_physics_features, determine_flag, analyze_sequence)
 from anomaly_core import (
     compute_physics_features,
     determine_flag,
     analyze_sequence
 )
-from model_loader import load_all # Removed prepare_sequences as it's not used in this consolidated file
+# Local imports (Requires model_loader.py, which contains: load_all, prepare_sequences)
+from model_loader import load_all, prepare_sequences
+
 
 # -----------------------------------------------------
 # FASTAPI SETUP
@@ -27,35 +29,60 @@ app = FastAPI(
     version="1.1"
 )
 
-# MODIFICATION: Use your specific Vercel URL for security and connectivity.
+# CRITICAL MODIFICATION: Use your specific Vercel URL for security and connectivity.
 VERCEL_FRONTEND_URL = "https://accu-battery-rn5xqqj4z-maheswaran-ss-projects.vercel.app" 
 
 app.add_middleware(
     CORSMiddleware,
-    # Crucial: Allow requests only from your Vercel URL and localhost
-    allow_origins=[VERCEL_FRONTEND_URL, "http://localhost:3000"], 
+    # FIX: Specify origins allowed to access this API for security
+    allow_origins=[VERCEL_FRONTEND_URL, "http://localhost:8000"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # -----------------------------------------------------
-# LOAD MODEL + SCALER (Using the robust load_all function)
+# LOAD MODEL + SCALER 
 # -----------------------------------------------------
-model, scaler, seq_len = load_all()
+# This loads the stable .h5 model and .pkl scaler (as configured in model_loader.py)
+model, scaler, SEQ_LEN = load_all()
+
 
 @app.get("/")
 def root():
     return {"status": "AccuBattery backend running"}
 
+
 # -----------------------------------------------------
-# PROCESS CSV ENDPOINT (Copied from api.py: /predict_csv)
+# PDF EXPORT HELPER 
 # -----------------------------------------------------
-@app.post("/predict_csv")
+# NOTE: Using the simple helper function definition here, 
+# as the complex logic is in the /export_pdf endpoint.
+def make_pdf(df: pd.DataFrame):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=16)
+    pdf.cell(0, 10, "AccuBattery Report", ln=True, align="C")
+    pdf.ln(10)
+    pdf.set_font("Arial", size=12)
+    # The original logic prints only the first row's data:
+    for col in df.columns:
+        pdf.cell(0, 8, f"{col}: {df[col].iloc[0]}", ln=True)
+    buffer = BytesIO()
+    pdf.output(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+# -----------------------------------------------------
+# PROCESS CSV ENDPOINT (Using robust Hybrid Logic from API.py)
+# -----------------------------------------------------
+@app.post("/predict_csv") 
 async def predict_csv(file: UploadFile = File(...)):
     try:
         content = await file.read()
         df = pd.read_csv(BytesIO(content))
+
         timestamp = df["timestamp"] if "timestamp" in df.columns else None
         df_phy = compute_physics_features(df)
         N = len(df)
@@ -63,8 +90,8 @@ async def predict_csv(file: UploadFile = File(...)):
         if N < 5:
             return {"error": "CSV must contain at least 5 rows."}
 
-        if N <= seq_len:
-            # Physics-only fallback mode (from api.py)
+        if N <= SEQ_LEN:
+            # Physics-only fallback logic
             final_scores = df_phy["physics_score"].values
             flags = determine_flag(final_scores)
 
@@ -82,10 +109,8 @@ async def predict_csv(file: UploadFile = File(...)):
                 "mode": "physics_only"
             }
 
-        # ML + Physics Hybrid (normal mode - from api.py)
-        # NOTE: prepare_sequences must be accessible, which it is via 'model_loader.py'
-        from model_loader import prepare_sequences # Ensure it's imported correctly
-        seq_data, scaled_df = prepare_sequences(df, scaler, seq_len)
+        # Hybrid ML + Physics (normal mode)
+        seq_data, scaled_df = prepare_sequences(df, scaler, SEQ_LEN)
 
         preds = model.predict(seq_data, verbose=0)
 
@@ -96,13 +121,13 @@ async def predict_csv(file: UploadFile = File(...)):
         ml_scores = np.mean((actual_last - preds)**2, axis=1)
 
         result_df = analyze_sequence(
-            scaled_df.iloc[seq_len:].reset_index(drop=True),
+            scaled_df.iloc[SEQ_LEN:].reset_index(drop=True),
             ml_scores,
-            df_phy.iloc[seq_len:].reset_index(drop=True)
+            df_phy.iloc[SEQ_LEN:].reset_index(drop=True)
         )
 
         if timestamp is not None:
-            result_df.insert(0, "timestamp", timestamp.iloc[seq_len:].values)
+            result_df.insert(0, "timestamp", timestamp.iloc[SEQ_LEN:].values)
 
         return {
             "data": result_df.to_dict(orient="records"),
@@ -114,12 +139,12 @@ async def predict_csv(file: UploadFile = File(...)):
     except Exception as e:
         return {"error": str(e)}
 
+
 # -----------------------------------------------------
-# PDF EXPORT ENDPOINT (Copied from api.py: /export_pdf)
+# PDF EXPORT ENDPOINT (From API.py)
 # -----------------------------------------------------
 @app.post("/export_pdf")
 async def export_pdf(data: dict):
-    # This logic comes from the API.py PDF export function
     rows = data.get("rows", [])
     summary = data.get("summary", {})
 
@@ -156,6 +181,7 @@ async def export_pdf(data: dict):
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=accubattery_report.pdf"},
     )
+
 
 # -----------------------------------------------------
 # LOCAL DEV ENTRYPOINT
