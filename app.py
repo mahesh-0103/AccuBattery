@@ -74,10 +74,6 @@ def convert_units(df, mode):
         if "min_temp" in df.columns:
             df["min_temp"] = df["min_temp"] * 9/5 + 32
         if "volt" in df.columns:
-            # Assuming volt is in mV and converting to V for Imperial display is an error.
-            # Usually, power is converted: Power (W) = V * I. 
-            # If the original line `df["volt"] = df["volt"] * 0.001` was meant to convert mV to V, 
-            # we keep it for Imperial mode. If volt is already V, this should be removed/fixed.
              df["volt"] = df["volt"] * 0.001 
     return df
 
@@ -115,7 +111,12 @@ def get_pdf_report(df, threshold, total_anom):
             
         else:
             st.error(f"Failed to generate PDF. Backend returned status: {res.status_code}")
-            st.json(res.json())
+            try:
+                # Try to show JSON error if available
+                st.json(res.json())
+            except:
+                st.write(f"Raw response: {res.text}")
+
 
     except requests.exceptions.RequestException as e:
         st.error(f"Network error while contacting PDF service: {e}")
@@ -246,5 +247,4 @@ if uploaded:
     with col_dl2:
         # Trigger the backend PDF generation on button click
         if st.button("📄 Generate PDF Report"):
-            get_pdf_report(df, threshold, total_anom)accubattery_report.pdf")
-
+            get_pdf_report(df, threshold, total_anom)
