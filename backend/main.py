@@ -26,8 +26,8 @@ from anomaly_core import (
 # --- Constants (MUST match your trained model configuration) ---
 FEATURES = ['voltage', 'current', 'temperature', 'soc', 'soh', 'impedance', 'd_voltage', 'd_current']
 SEQ_LEN = 128 # Sequence length your model was trained on
-ANOMALY_THRESHOLD = 0.30 
-ML_WEIGHT = 0.7 
+ANOMALY_THRESHOLD = 0.30
+ML_WEIGHT = 0.7
 PHYSICS_WEIGHT = 1.0 - ML_WEIGHT
 
 # --- UTILITY: Model Loading (Adjusted for your 'models' folder and filenames) ---
@@ -74,52 +74,8 @@ def prepare_sequences(df: pd.DataFrame, scaler, seq_len: int):
 
 # --- UTILITY: Anomaly Core Functions ---
 
-def compute_physics_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Calculates physics-based features and a simple 'physics_score'."""
-    df_phy = pd.DataFrame()
-
-    if 'current' not in df.columns or 'voltage' not in df.columns:
-        df_phy['physics_score'] = 0.0
-        return df_phy
-
-    df_phy['power'] = df['voltage'] * df['current']
-    df_phy['d_voltage_dt'] = df['voltage'].diff().fillna(0)
-    
-    # Simple Physics Score: based on rapid voltage change
-    df_phy['physics_score'] = np.abs(df_phy['d_voltage_dt']) * 10
-    df_phy['physics_score'] = df_phy['physics_score'].clip(upper=1.0)
-        
-    return df_phy
-
-def determine_flag(final_scores: np.ndarray) -> list:
-    """Assigns a binary flag based on the final anomaly score and the threshold."""
-    return (final_scores > ANOMALY_THRESHOLD).astype(int).tolist()
-
-def analyze_sequence(scaled_df: pd.DataFrame, ml_scores: np.ndarray, df_phy: pd.DataFrame) -> pd.DataFrame:
-    """Combines ML and Physics scores and generates the final results DataFrame."""
-    
-    # 1. Normalize ML Scores
-    max_ml_score = np.max(ml_scores) if np.max(ml_scores) > 0 else 1.0
-    normalized_ml_scores = ml_scores / max_ml_score
-    
-    # 2. Hybrid Score Calculation (Max of weighted scores)
-    ml_contribution = normalized_ml_scores * ML_WEIGHT
-    phy_contribution = df_phy['physics_score'].values * PHYSICS_WEIGHT
-    
-    final_scores = np.maximum(ml_contribution, phy_contribution)
-    
-    # 3. Determine Flag
-    flags = determine_flag(final_scores)
-
-    # 4. Create Final Results DataFrame
-    result_df = scaled_df.copy()
-    result_df["ml_score"] = normalized_ml_scores
-    result_df["physics_score"] = df_phy["physics_score"].values
-    result_df["anomaly_score"] = final_scores
-    result_df["anomaly_flag"] = flags
-    
-    return result_df
-
+# NOTE: The implementation of compute_physics_features, determine_flag, and analyze_sequence 
+# is pulled from the external anomaly_core.py file, which is correct.
 
 # -----------------------------------------------------
 # FASTAPI SETUP
@@ -131,17 +87,12 @@ app = FastAPI(
 )
 
 
-# CRITICAL MODIFICATION: Update this to your deployed Render URL for security and connectivity.
-# While render provides the final URL, VERCEL_FRONTEND_URL refers to your frontend URL
-# which needs to be allowed to access this backend.
-
+# CRITICAL MODIFICATION: CORS Configuration
 VERCEL_FRONTEND_URL = "https://accu-battery-rn5xqqj4z-maheswaran-ss-projects.vercel.app" # Your frontend URL
-
 RENDER_BACKEND_URL = "https://accubattery.onrender.com" # Your backend URL
 
 app.add_middleware(
     CORSMiddleware,
-    # Allow both your Vercel frontend and the Render backend (self-referencing is good)
     allow_origins=[
         VERCEL_FRONTEND_URL, 
         RENDER_BACKEND_URL, 
@@ -152,7 +103,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# You should redeploy the backend after making this change.
 
 # -----------------------------------------------------
 # LOAD MODEL + SCALER (Executed on startup)
@@ -167,7 +117,6 @@ def startup_event():
         model, scaler, _ = load_all()
         print(f"Model and Scaler loaded successfully. SEQ_LEN: {SEQ_LEN}")
     except HTTPException as e:
-        # Re-raise the HTTPException to display model loading error
         print(f"FATAL: Application started, but models are unavailable: {e.detail}")
     except Exception as e:
         print(f"FATAL: An unexpected error occurred during startup: {e}")
@@ -296,19 +245,12 @@ async def export_pdf(data: dict):
     return StreamingResponse(
         buffer,
         media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=accubattery_report.pdf"},
+        headers={"Content-Disposition": f"attachment; filename=accubattery_report.pdf"},
     )
 
 
 # -----------------------------------------------------
-# LOCAL DEV ENTRYPOINT
+# LOCAL DEV ENTRYPOINT (Corrected to only appear once)
 # -----------------------------------------------------
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-# LOCAL DEV ENTRYPOINT
-# -----------------------------------------------------
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
-
-
-
