@@ -92,7 +92,7 @@ app = FastAPI(
 
 # CRITICAL MODIFICATION: CORS Configuration
 # VERCEL_FRONTEND_URL = "https://accu-battery-rn5xqqj4z-maheswaran-ss-projects.vercel.app" 
-VERCEL_FRONTEND_URL = "https://accu-battery-pdmu.vercel.app"
+VERCEL_FRONTEND_URL_NEW = "https://accu-battery-pdmu.vercel.app"
 
 RENDER_BACKEND_URL = "https://accubattery.onrender.com" # Your backend URL
 
@@ -258,4 +258,5 @@ async def export_pdf(data: dict):
 # -----------------------------------------------------
 if __name__ == "__main__":
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+
 
